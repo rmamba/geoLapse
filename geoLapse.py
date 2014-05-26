@@ -9,11 +9,13 @@ Created on 26 May 2014
 
 from decimal import Decimal
 
+import os
 import sys
 import time
 import math
 import json
 import subprocess
+import glob
 
 #RaspberryPi: susudo tdo apt-get install python-serial
 import serial
@@ -78,6 +80,11 @@ if __name__ == "__main__":
 	__config = json.loads(s)
 	f.close()
 	
+	#Leave at least 100Mb free
+	__minSpace = 100.0
+	if 'minSpace' in __config:
+		__minSpace = __config['minSpace']
+	
 	__device = '/dev/ttyUSB0'
 	if 'device' in __config:
 		__device = __config['device']
@@ -122,6 +129,7 @@ if __name__ == "__main__":
 	timeRMC = 0
 	
 	while 1:
+		sysTime = int(time.time())
 		if __ser.inWaiting()>40:
 			line = __ser.readline()
 			if (__history != None):
@@ -142,33 +150,55 @@ if __name__ == "__main__":
 				knots = toFloat(RMC[7])
 				date = toInt(RMC[9])
 				
-				#print timeRMC, ' ', date
-				
 				Lat = toDoubleLatLong(GGA[2], GGA[3])
 				Lon = toDoubleLatLong(GGA[4], GGA[5])
 				
-				if not date in GPS:
-					GPS[date] = {}
-				
-				GPS[date][timeRMC] = { 
+				GPS[sysTime] = { 
 					"Lat": Lat,
 					"Lon": Lon,
 					"Url": { "GoogleMaps": 'https://maps.google.com?q={0},{1}&z=17'.format(Lat, Lon) },
 					"Satellites": toInt(GGA[7]),
 					"Dilution": toFloat(GGA[8]),
 					"Alt": toFloat(GGA[9]),
-					"Speed": { 
+					"Speed": {
+						"knots": None,
+						"kmh": None,
+						"mph": None,
+						"mps": None
+					},
+					"Warning": RMC[2],
+					"Direction": toFloat(RMC[8]),
+					"DateTime": {
+						"time": timeRMC,
+						"date": date
+					}
+				}
+				if knots != None:
+					GPS[sysTime]["Speed"] = {
 						"knots": knots,
 						"kmh": knots * 1.85200000,
 						"mph": knots * 1.15077945,
 						"mps": knots * 0.51444444
-					},
-					"Warning": RMC[2],
-					"Direction": toFloat(RMC[8])
-				}
+					}
 				GGA = None
-				if timeRMC % 5 == 0:
-					cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/photo_%s_%s.jpg" % (__width, __height, __dir, date, timeRMC) )
-					#print cmd
-					subprocess.call(cmd, shell=True)
+		if sysTime % 5 == 0:
+			#check for size
+			s = os.statvfs(__dir)
+			free = (s.f_bavail * s.f_frsize) / 1048576.0
+			if free < __minSpace:
+				#delete oldest image
+				oldJPEG = sorted(glob.glob(__dir + '/*.jpg'))[0]
+				if os.path.isfile(oldJPEG):
+					#print "Deleting ", oldJPEG
+					os.remove(oldJPEG)
+			fileName = "photo-%s.jpg" % sysTime
+			cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
+			if not os.path.isfile(__dir + '/' + fileName):
+				#print cmd
+				subprocess.call(cmd, shell=True)
+		if (sysTime % 3600 == 0) and (GPS !=None):
+			f = open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w')
+			f.write(json.dumps(GPS))
+			f.close()
+			GPS={}
 		time.sleep(.2)
