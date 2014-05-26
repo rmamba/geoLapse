@@ -98,13 +98,13 @@ if __name__ == "__main__":
 		sys.exit()
 	
 	try:
-		writeLog("Opening port %s" % self.device)
-		__ser = serial.Serial(port=self.device, baudrate=self.baud, timeout=self.timeout)
+		writeLog("Opening port %s" % __device)
+		__ser = serial.Serial(port=__device, baudrate=__baud, timeout=1)
 		if (__ser != None):
-			_writeLog("Opened...")
+			writeLog("Opened...")
 			
 	except:
-		_writeErr("Exception opening port %s" % self.device)
+		writeErr("Exception opening port %s" % __device)
 		sys.exit()
 	
 	lapseDelay = 0
@@ -114,8 +114,8 @@ if __name__ == "__main__":
 		isChanged = False
 		if __ser.inWaiting()>40:
 			line = __ser.readline()
-			if (self.__hislog != None):
-				self.__hislog.write(line)
+			if (__history != None):
+				__history.write(line)
 			if (line.startswith('$GPGGA')):
 				GGA = line.split(',')
 				#isChanged = True
