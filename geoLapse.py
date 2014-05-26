@@ -13,6 +13,7 @@ import sys
 import time
 import math
 import json
+import subprocess
 
 #RaspberryPi: susudo tdo apt-get install python-serial
 import serial
@@ -89,6 +90,13 @@ if __name__ == "__main__":
 	if 'baud' in __config:
 		__baud = __config['baud']
 	
+	__width = 800
+	if 'width' in __config:
+		__width = __config['width']
+	__height = 600
+	if 'height' in __config:
+		__height = __config['height']
+	
 	__history = None
 	if 'history' in __config:
 		__history = __config['history']
@@ -109,9 +117,11 @@ if __name__ == "__main__":
 	
 	lapseDelay = 0
 	GPS = {}
+	GGA = None
+	RMC = None
+	timeRMC = 0
 	
 	while 1:
-		isChanged = False
 		if __ser.inWaiting()>40:
 			line = __ser.readline()
 			if (__history != None):
@@ -120,23 +130,30 @@ if __name__ == "__main__":
 				GGA = line.split(',')
 				#isChanged = True
 			if (line.startswith('$GPRMC')):
+				if GGA == None:
+					continue
 				RMC = line.split(',')
-				timeGGA = toFloat(GGA[1])
-				time = toFloat(RMC[1])
+				timeGGA = int(toFloat(GGA[1]))
+				timeRMC = int(toFloat(RMC[1]))
 				
-				if timeGGA != time:
+				if timeGGA != timeRMC:
 					print "ERROR in data capture"
 				
 				knots = toFloat(RMC[7])
 				date = toInt(RMC[9])
 				
+				#print timeRMC, ' ', date
+				
+				Lat = toDoubleLatLong(GGA[2], GGA[3])
+				Lon = toDoubleLatLong(GGA[4], GGA[5])
+				
 				if not date in GPS:
 					GPS[date] = {}
 				
-				GPS[date][time] = { 
-					"Lat": toDoubleLatLong(GGA[2], GGA[3]),
-					"Lon": toDoubleLatLong(GGA[4], GGA[5]),
-					"Url": { "GoogleMaps": 'https://maps.google.com?q={Lat},{Lon}&z=17'.format(**self.GPS) },
+				GPS[date][timeRMC] = { 
+					"Lat": Lat,
+					"Lon": Lon,
+					"Url": { "GoogleMaps": 'https://maps.google.com?q={0},{1}&z=17'.format(Lat, Lon) },
 					"Satellites": toInt(GGA[7]),
 					"Dilution": toFloat(GGA[8]),
 					"Alt": toFloat(GGA[9]),
@@ -149,16 +166,9 @@ if __name__ == "__main__":
 					"Warning": RMC[2],
 					"Direction": toFloat(RMC[8])
 				}
-				isChanged = True
-
-		if isChanged:
-			lapseDelay = lapseDelay + 1
-			
-		if lapseDelay >= 5:
-			lapseDelay = 0
-			print GPS
-			
-			#cmd = ("raspistill -t 250 -tl " + str(tlfreq) + " -o " + dir + "/photo_%04d.jpg")
-			#subprocess.call(cmd, shell=True)
-			
+				GGA = None
+				if timeRMC % 5 == 0:
+					cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/photo_%s_%s.jpg" % (__width, __height, __dir, date, timeRMC) )
+					#print cmd
+					subprocess.call(cmd, shell=True)
 		time.sleep(.2)
