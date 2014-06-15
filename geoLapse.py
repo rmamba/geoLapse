@@ -19,6 +19,8 @@ import glob
 
 #RaspberryPi: susudo tdo apt-get install python-serial
 import serial
+
+import RPi.GPIO as GPIO
 	
 def writeLog(msg, isDate=True):
 	sys.stdout.write("%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
@@ -74,7 +76,20 @@ def toInt(value):
 		val = None
 	return val
 
-if __name__ == "__main__":	
+if __name__ == "__main__":
+	GPIO.setmode(GPIO.BOARD)
+	GPIO.setwarnings(False)
+	
+	GPIO.setup(16, GPIO.OUT)
+	GPIO.setup(18, GPIO.OUT)
+	GPIO.setup(22, GPIO.OUT)
+	GPIO.setup(7, GPIO.IN)
+	GPIO.setup(11, GPIO.IN)
+	
+	GPIO.output(16, 1)
+	GPIO.output(18, 0)
+	GPIO.output(22, 0)
+	
 	f = open('geoLapse.config', 'r')
 	s = f.read()
 	__config = json.loads(s)
@@ -127,10 +142,12 @@ if __name__ == "__main__":
 	GGA = None
 	RMC = None
 	timeRMC = 0
+	blink = 0
 	
 	while 1:
 		sysTime = int(time.time())
 		if __ser.inWaiting()>40:
+			GPIO.output(18, 1)
 			line = __ser.readline()
 			if (__history != None):
 				__history.write(line)
@@ -181,7 +198,9 @@ if __name__ == "__main__":
 						"mps": knots * 0.51444444
 					}
 				GGA = None
-		if sysTime % 5 == 0:
+				GPIO.output(18, 0)
+		if (sysTime % 5 == 0) and (GPIO.input(7)==1):
+			GPIO.output(22, 1)
 			#check for size
 			s = os.statvfs(__dir)
 			free = (s.f_bavail * s.f_frsize) / 1048576.0
@@ -196,9 +215,19 @@ if __name__ == "__main__":
 			if not os.path.isfile(__dir + '/' + fileName):
 				#print cmd
 				subprocess.call(cmd, shell=True)
+			GPIO.output(22, 0)
 		if (sysTime % 3600 == 0) and (GPS !=None):
 			f = open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w')
 			f.write(json.dumps(GPS))
 			f.close()
 			GPS={}
+		blink = blink + 1
+		if blink > 16:
+			blink = 0
+		if blink and 8 == 8:
+			GPIO.output(16, 1)
+		else:
+			GPIO.output(16, 0)
+		if GPIO.input(11) == 1:
+			GPIO.output(16, 1)
 		time.sleep(.2)
