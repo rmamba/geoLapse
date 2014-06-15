@@ -224,10 +224,7 @@ if __name__ == "__main__":
 		blink = blink + 1
 		if blink > 16:
 			blink = 0
-		if blink and 8 == 8:
-			GPIO.output(16, 1)
-		else:
-			GPIO.output(16, 0)
+		GPIO.output(16, blink % 2)
 		if GPIO.input(11) == 1:
 			GPIO.output(16, 1)
 		time.sleep(.2)
