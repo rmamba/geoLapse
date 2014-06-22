@@ -157,11 +157,11 @@ if __name__ == "__main__":
 	while 1:
 		sysTime = int(time.time())
 		if __ser.inWaiting()>40:
-			GPIO.output(18, 1)
 			line = __ser.readline()
 			if (__history != None):
 				__history.write(line)
 			if (line.startswith('$GPGGA')):
+				GPIO.output(18, 1)
 				GGA = line.split(',')
 				#isChanged = True
 			if (line.startswith('$GPRMC')):
