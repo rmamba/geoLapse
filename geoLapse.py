@@ -161,8 +161,9 @@ if __name__ == "__main__":
 			if (__history != None):
 				__history.write(line)
 			if (line.startswith('$GPGGA')):
-				GPIO.output(18, 1)
 				GGA = line.split(',')
+				if GGA[2]!='':
+					GPIO.output(18, 1)
 				#isChanged = True
 			if (line.startswith('$GPRMC')):
 				if GGA == None:
