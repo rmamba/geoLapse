@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Generic Daemon start/stop script
+# This goes to /etc/init.d folder
+# $: /etc/init.d/btsyncd
+
+# Replace:
+# {PROGRAM} with program name [btsync]
+# {EXEPATH} with path to program [/home/pi]
+# {PIDFILE} with PID file name [/var/run/btsync.pid]
+# {PARAMETERS} add parameters to command line [> /var/log/btsync.log 2>&1]
+# or leave parameters empty if not needed
+# And you're good to go
+
+PROGRAM=geoLapse.py
+EXEPATH=/home/pi/GIT/geoLapse
+PIDFILE=/var/run/geoLapse.pid
+
+do_start () {
+ python $EXEPATH/$PROGRAM $EXEPATH/geoLapse.config > /var/log/geoLapse.log 2>&1 &
+ echo $! > $PIDFILE
+}
+
+do_status () {
+ echo "Process ID at: "
+ cat $PIDFILE
+ echo
+}
+
+do_stop () {
+ kill -9 `cat $PIDFILE`
+ rm $PIDFILE
+}
+
+case "$1" in
+  start|"")
+	do_start
+	;;
+  restart|reload|force-reload)
+	do_stop
+	sleep 4
+	do_start
+	;;
+  stop)
+	do_stop
+	;;
+  status)
+	do_status
+	exit $?
+	;;
+  *)
+	echo "Usage: $PROGRAM [start|stop|restart|status]" >&2
+	exit 3
+	;;
+esac
+
+:
