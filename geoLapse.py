@@ -76,6 +76,11 @@ def toInt(value):
 		val = None
 	return val
 
+def writePID():
+	pid = str(os.getpid())
+	with open('/var/run/geoLapse.pid', 'w') as f:
+		f.write(pid)
+
 if __name__ == "__main__":
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
@@ -90,10 +95,11 @@ if __name__ == "__main__":
 	GPIO.output(18, 0)
 	GPIO.output(22, 0)
 	
-	f = open('geoLapse.config', 'r')
-	s = f.read()
-	__config = json.loads(s)
-	f.close()
+	writePID()
+	
+	with open('geoLapse.config', 'r') as f:
+		s = f.read()
+		__config = json.loads(s)
 	
 	#Leave at least 100Mb free
 	__minSpace = 100.0
@@ -217,9 +223,8 @@ if __name__ == "__main__":
 				subprocess.call(cmd, shell=True)
 			GPIO.output(22, 0)
 		if (sysTime % 3600 == 0) and (GPS !=None):
-			f = open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w')
-			f.write(json.dumps(GPS))
-			f.close()
+			with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+				f.write(json.dumps(GPS))
 			GPS={}
 		blink = blink + 1
 		if blink > 16:
