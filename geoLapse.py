@@ -95,9 +95,12 @@ if __name__ == "__main__":
 	GPIO.output(18, 0)
 	GPIO.output(22, 0)
 	
-	writePID()
+	#writePID()
+	configFile = 'geoLapse.config'
+	if len(sys.argv) == 2:
+		configFile = sys.argv[1]
 	
-	with open('geoLapse.config', 'r') as f:
+	with open(configFile, 'r') as f:
 		s = f.read()
 		__config = json.loads(s)
 	
