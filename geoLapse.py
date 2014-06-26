@@ -152,7 +152,8 @@ if __name__ == "__main__":
 	RMC = None
 	timeRMC = 0
 	blink = 0
-	cntDown = 50
+	cntDownReset = 50
+	cntDown = cntDownReset
 	
 	while 1:
 		sysTime = int(time.time())
@@ -237,9 +238,10 @@ if __name__ == "__main__":
 		GPIO.output(16, blink % 2)
 		if GPIO.input(11) == 1:
 			GPIO.output(16, 1)
-			cntDown = cntDown - 1
-			if cntDown < 1:
+			if cntDown > 0:
+				cntDown = cntDown - 1
+			else:
 				subprocess.call('sudo shutdown -h now', shell=True)
 		else:
-			cntDown = 50
+			cntDown = cntDownReset
 		time.sleep(.2)
