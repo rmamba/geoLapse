@@ -91,13 +91,13 @@ def dumpGPS():
 	GPS={}
 
 def signal_term_handler(signal, frame):
-    print 'got SIGTERM'
+	print 'got SIGTERM'
 	dumpGPS()
-#    sys.exit(0)
+#	sys.exit(0)
 	bRun = False
 
 signal.signal(signal.SIGTERM, signal_term_handler)
-	
+
 if __name__ == "__main__":
 	LED0 = 16
 	LED1 = 18
@@ -201,7 +201,7 @@ if __name__ == "__main__":
 					timeRMC = int(toFloat(RMC[1]))
 					
 					if timeGGA != timeRMC:
-						print "ERROR in data capture"
+						writeErr("ERROR in data capture")
 					
 					knots = toFloat(RMC[7])
 					date = toInt(RMC[9])
