@@ -82,18 +82,23 @@ def writePID():
 		f.write(pid)
 
 if __name__ == "__main__":
+	LED0 = 16
+	LED1 = 18
+	LED2 = 22
+	KEY = 7
+	SW = 11
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
 	
-	GPIO.setup(16, GPIO.OUT)
-	GPIO.setup(18, GPIO.OUT)
-	GPIO.setup(22, GPIO.OUT)
-	GPIO.setup(7, GPIO.IN)
-	GPIO.setup(11, GPIO.IN)
+	GPIO.setup(LED0, GPIO.OUT)
+	GPIO.setup(LED1, GPIO.OUT)
+	GPIO.setup(LED2, GPIO.OUT)
+	GPIO.setup(KEY, GPIO.IN)
+	GPIO.setup(SW, GPIO.IN)
 	
-	GPIO.output(16, 1)
-	GPIO.output(18, 0)
-	GPIO.output(22, 0)
+	GPIO.output(LED0, 1)
+	GPIO.output(LED1, 0)
+	GPIO.output(LED2, 0)
 	
 	#writePID()
 	configFile = 'geoLapse.config'
@@ -132,6 +137,10 @@ if __name__ == "__main__":
 	if 'history' in __config:
 		__history = __config['history']
 	
+	__override = False
+	if 'override' in __config:
+		__override = __config['override']
+	
 	if __dir == None:
 		print "Missing target directory!"
 		sys.exit()
@@ -152,10 +161,12 @@ if __name__ == "__main__":
 	RMC = None
 	timeRMC = 0
 	blink = 0
-	cntDownReset = 50
+	cntDownReset = 35
 	cntDown = cntDownReset
+	bRun = True
+	bDumpGPS = True
 	
-	while 1:
+	while bRun:
 		sysTime = int(time.time())
 		if __ser.inWaiting()>40:
 			line = __ser.readline()
@@ -164,7 +175,7 @@ if __name__ == "__main__":
 			if (line.startswith('$GPGGA')):
 				GGA = line.split(',')
 				if GGA[2]!='':
-					GPIO.output(18, 1)
+					GPIO.output(LED1, 1)
 				#isChanged = True
 			if (line.startswith('$GPRMC')):
 				if GGA == None:
@@ -210,9 +221,9 @@ if __name__ == "__main__":
 						"mps": knots * 0.51444444
 					}
 				GGA = None
-				GPIO.output(18, 0)
+				GPIO.output(LED1, 0)
 		if (sysTime % 5 == 0) and (GPIO.input(7)==1):
-			GPIO.output(22, 1)
+			GPIO.output(LED2, 1)
 			#check for size
 			s = os.statvfs(__dir)
 			free = (s.f_bavail * s.f_frsize) / 1048576.0
@@ -224,24 +235,42 @@ if __name__ == "__main__":
 					os.remove(oldJPEG)
 			fileName = "photo-%s.jpg" % sysTime
 			cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
-			if not os.path.isfile(__dir + '/' + fileName):
+			#print cmd
+			if (not os.path.isfile(__dir + '/' + fileName)) or (__override == True):
 				#print cmd
 				subprocess.call(cmd, shell=True)
-			GPIO.output(22, 0)
+			GPIO.output(LED2, 0)
 		if (sysTime % 3600 == 0) and (GPS !=None):
 			with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
 				f.write(json.dumps(GPS))
 			GPS={}
 		blink = blink + 1
-		if blink > 16:
+		if blink > 15:
 			blink = 0
-		GPIO.output(16, blink % 2)
+		GPIO.output(LED0, blink % 2)
 		if GPIO.input(11) == 1:
-			GPIO.output(16, 1)
+			GPIO.output(LED0, 1)
 			if cntDown > 0:
 				cntDown = cntDown - 1
+				if (cntDown<10) and bDumpGPS:
+					bDumpGPS = False
+					with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+						f.write(json.dumps(GPS))
+					GPS={}
 			else:
+				with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+					f.write(json.dumps(GPS))
+				GPS={}
 				subprocess.call('sudo shutdown -h now', shell=True)
 		else:
 			cntDown = cntDownReset
-		time.sleep(.2)
+			bDumpGPS = True
+		try:
+			time.sleep(.2)
+		except KeyboardInterrupt:
+			print "Saving GPS data..."
+			with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+				f.write(json.dumps(GPS))
+			GPS={}
+			bRun = False
+	print "Ending geoLapse..."
