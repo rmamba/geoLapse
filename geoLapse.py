@@ -91,7 +91,7 @@ def dumpGPS():
 	GPS={}
 
 def signal_term_handler(signal, frame):
-	print 'got SIGTERM'
+	writeLog('got SIGTERM')
 	dumpGPS()
 #	sys.exit(0)
 	bRun = False
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 					#delete oldest image
 					oldJPEG = sorted(glob.glob(__dir + '/*.jpg'))[0]
 					if os.path.isfile(oldJPEG):
-						#print "Deleting ", oldJPEG
+						writeLog("Deleting %s" % oldJPEG)
 						os.remove(oldJPEG)
 				fileName = "photo-%s.jpg" % sysTime
 				cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
@@ -277,9 +277,9 @@ if __name__ == "__main__":
 				bDumpGPS = True
 			time.sleep(.2)
 		except KeyboardInterrupt:
-			print "Saving GPS data..."
+			writeLog("KeyboardInterrupt: Saving GPS data...")
 			dumpGPS()
 			bRun = False
 		except:
 			writeErr(sys.exc_info()[0])
-	print "Ended geoLapse..."
+	writeLog("Ended geoLapse...")
