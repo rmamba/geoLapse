@@ -16,12 +16,16 @@ import math
 import json
 import subprocess
 import glob
+import signal
 
 #RaspberryPi: susudo tdo apt-get install python-serial
 import serial
 
 import RPi.GPIO as GPIO
-	
+
+GPS = {}
+bRun = True
+
 def writeLog(msg, isDate=True):
 	sys.stdout.write("%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
 	sys.stdout.flush()
@@ -81,12 +85,25 @@ def writePID():
 	with open('/var/run/geoLapse.pid', 'w') as f:
 		f.write(pid)
 
+def dumpGPS():
+	with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+		f.write(json.dumps(GPS))
+	GPS={}
+
+def signal_term_handler(signal, frame):
+    print 'got SIGTERM'
+	dumpGPS()
+#    sys.exit(0)
+	bRun = False
+
+signal.signal(signal.SIGTERM, signal_term_handler)
+	
 if __name__ == "__main__":
 	LED0 = 16
 	LED1 = 18
 	LED2 = 22
-	KEY = 7
-	SW = 11
+	KEY = 11
+	SW = 7
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
 	
@@ -156,121 +173,113 @@ if __name__ == "__main__":
 		sys.exit()
 	
 	lapseDelay = 0
-	GPS = {}
 	GGA = None
 	RMC = None
 	timeRMC = 0
 	blink = 0
 	cntDownReset = 35
 	cntDown = cntDownReset
-	bRun = True
 	bDumpGPS = True
 	
 	while bRun:
-		sysTime = int(time.time())
-		if __ser.inWaiting()>40:
-			line = __ser.readline()
-			if (__history != None):
-				__history.write(line)
-			if (line.startswith('$GPGGA')):
-				GGA = line.split(',')
-				if GGA[2]!='':
-					GPIO.output(LED1, 1)
-				#isChanged = True
-			if (line.startswith('$GPRMC')):
-				if GGA == None:
-					continue
-				RMC = line.split(',')
-				timeGGA = int(toFloat(GGA[1]))
-				timeRMC = int(toFloat(RMC[1]))
-				
-				if timeGGA != timeRMC:
-					print "ERROR in data capture"
-				
-				knots = toFloat(RMC[7])
-				date = toInt(RMC[9])
-				
-				Lat = toDoubleLatLong(GGA[2], GGA[3])
-				Lon = toDoubleLatLong(GGA[4], GGA[5])
-				
-				GPS[sysTime] = { 
-					"Lat": Lat,
-					"Lon": Lon,
-					"Url": { "GoogleMaps": 'https://maps.google.com?q={0},{1}&z=17'.format(Lat, Lon) },
-					"Satellites": toInt(GGA[7]),
-					"Dilution": toFloat(GGA[8]),
-					"Alt": toFloat(GGA[9]),
-					"Speed": {
-						"knots": None,
-						"kmh": None,
-						"mph": None,
-						"mps": None
-					},
-					"Warning": RMC[2],
-					"Direction": toFloat(RMC[8]),
-					"DateTime": {
-						"time": timeRMC,
-						"date": date
-					}
-				}
-				if knots != None:
-					GPS[sysTime]["Speed"] = {
-						"knots": knots,
-						"kmh": knots * 1.85200000,
-						"mph": knots * 1.15077945,
-						"mps": knots * 0.51444444
-					}
-				GGA = None
-				GPIO.output(LED1, 0)
-		if (sysTime % 5 == 0) and (GPIO.input(7)==1):
-			GPIO.output(LED2, 1)
-			#check for size
-			s = os.statvfs(__dir)
-			free = (s.f_bavail * s.f_frsize) / 1048576.0
-			if free < __minSpace:
-				#delete oldest image
-				oldJPEG = sorted(glob.glob(__dir + '/*.jpg'))[0]
-				if os.path.isfile(oldJPEG):
-					#print "Deleting ", oldJPEG
-					os.remove(oldJPEG)
-			fileName = "photo-%s.jpg" % sysTime
-			cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
-			#print cmd
-			if (not os.path.isfile(__dir + '/' + fileName)) or (__override == True):
-				#print cmd
-				subprocess.call(cmd, shell=True)
-			GPIO.output(LED2, 0)
-		if (sysTime % 3600 == 0) and (GPS !=None):
-			with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
-				f.write(json.dumps(GPS))
-			GPS={}
-		blink = blink + 1
-		if blink > 15:
-			blink = 0
-		GPIO.output(LED0, blink % 2)
-		if GPIO.input(11) == 1:
-			GPIO.output(LED0, 1)
-			if cntDown > 0:
-				cntDown = cntDown - 1
-				if (cntDown<10) and bDumpGPS:
-					bDumpGPS = False
-					with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
-						f.write(json.dumps(GPS))
-					GPS={}
-			else:
-				with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
-					f.write(json.dumps(GPS))
-				GPS={}
-				subprocess.call('sudo shutdown -h now', shell=True)
-		else:
-			cntDown = cntDownReset
-			bDumpGPS = True
 		try:
+			sysTime = int(time.time())
+			if __ser.inWaiting()>40:
+				line = __ser.readline()
+				if (__history != None):
+					__history.write(line)
+				if (line.startswith('$GPGGA')):
+					GGA = line.split(',')
+					if GGA[2]!='':
+						GPIO.output(LED1, 1)
+					#isChanged = True
+				if (line.startswith('$GPRMC')):
+					if GGA == None:
+						continue
+					RMC = line.split(',')
+					timeGGA = int(toFloat(GGA[1]))
+					timeRMC = int(toFloat(RMC[1]))
+					
+					if timeGGA != timeRMC:
+						print "ERROR in data capture"
+					
+					knots = toFloat(RMC[7])
+					date = toInt(RMC[9])
+					
+					Lat = toDoubleLatLong(GGA[2], GGA[3])
+					Lon = toDoubleLatLong(GGA[4], GGA[5])
+					
+					GPS[sysTime] = { 
+						"Lat": Lat,
+						"Lon": Lon,
+						"Url": { "GoogleMaps": 'https://maps.google.com?q={0},{1}&z=17'.format(Lat, Lon) },
+						"Satellites": toInt(GGA[7]),
+						"Dilution": toFloat(GGA[8]),
+						"Alt": toFloat(GGA[9]),
+						"Speed": {
+							"knots": None,
+							"kmh": None,
+							"mph": None,
+							"mps": None
+						},
+						"Warning": RMC[2],
+						"Direction": toFloat(RMC[8]),
+						"DateTime": {
+							"time": timeRMC,
+							"date": date
+						}
+					}
+					if knots != None:
+						GPS[sysTime]["Speed"] = {
+							"knots": knots,
+							"kmh": knots * 1.85200000,
+							"mph": knots * 1.15077945,
+							"mps": knots * 0.51444444
+						}
+					GGA = None
+					GPIO.output(LED1, 0)
+			if (sysTime % 5 == 0) and (GPIO.input(SW)==1):
+				GPIO.output(LED2, 1)
+				#check for size
+				s = os.statvfs(__dir)
+				free = (s.f_bavail * s.f_frsize) / 1048576.0
+				if free < __minSpace:
+					#delete oldest image
+					oldJPEG = sorted(glob.glob(__dir + '/*.jpg'))[0]
+					if os.path.isfile(oldJPEG):
+						#print "Deleting ", oldJPEG
+						os.remove(oldJPEG)
+				fileName = "photo-%s.jpg" % sysTime
+				cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
+				#print cmd
+				if (not os.path.isfile(__dir + '/' + fileName)) or (__override == True):
+					#print cmd
+					subprocess.call(cmd, shell=True)
+				GPIO.output(LED2, 0)
+			if (sysTime % 3600 == 0) and (GPS !=None):
+				dumpGPS()
+			blink = blink + 1
+			if blink > 15:
+				blink = 0
+			GPIO.output(LED0, blink % 2)
+			if GPIO.input(KEY) == 1:
+				GPIO.output(LED0, 1)
+				if cntDown > 0:
+					cntDown = cntDown - 1
+					if (cntDown<10) and bDumpGPS:
+						bDumpGPS = False
+						dumpGPS()
+				else:
+					dumpGPS()
+					subprocess.call('sudo shutdown -h now', shell=True)
+			else:
+				cntDown = cntDownReset
+				bDumpGPS = True
 			time.sleep(.2)
 		except KeyboardInterrupt:
 			print "Saving GPS data..."
-			with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
-				f.write(json.dumps(GPS))
-			GPS={}
+			dumpGPS()
 			bRun = False
-	print "Ending geoLapse..."
+		except:
+			writeErr(sys.exc_info()[0])
+	print "Ended geoLapse..."
