@@ -183,19 +183,18 @@ if __name__ == "__main__":
 	bDumpGPS = True
 	line = None
 	oldLine = None
-	gpsData = None
+	gpsData = ''
 	
 	while bRun:
 		try:
 			sysTime = int(time.time())
 			if __ser.inWaiting()>0:
-				gpsData.append(__ser.read())
+				gpsData.append(__ser.read(__ser.inWaiting()))
 			tmp = gpsData.split("\n", 1)
-			line = tmp[0]
-			gpsData = tmp[1]
+			if len(tmp)>1:
+				line = tmp[0]
+				gpsData = tmp[1]
 			if line != None:
-				writeLog(line)
-#				line = __ser.readline()
 				if (__history != None):
 					__history.write(line)
 				if (line.startswith('$GPGGA')):
@@ -203,7 +202,6 @@ if __name__ == "__main__":
 					if GGA[2]!='':
 						GPIO.output(LED1, 1)
 					oldLine = line
-					line = None
 					#isChanged = True
 				if (line.startswith('$GPRMC')):
 					if GGA == None:
@@ -252,6 +250,7 @@ if __name__ == "__main__":
 						}
 					GGA = None
 					GPIO.output(LED1, 0)
+			line = None
 			if (sysTime % 5 == 0) and (GPIO.input(SW)==1):
 				GPIO.output(LED2, 1)
 				#check for size
@@ -289,11 +288,11 @@ if __name__ == "__main__":
 			else:
 				cntDown = cntDownReset
 				bDumpGPS = True
-			time.sleep(.2)
 		except KeyboardInterrupt:
 			writeLog("KeyboardInterrupt: Saving GPS data...")
 			dumpGPS()
 			bRun = False
 		except:
 			writeErr(sys.exc_info()[0])
+		time.sleep(.2)
 	writeLog("Ended geoLapse...")
