@@ -72,7 +72,7 @@ def toFloat(value):
 	return val
 
 def toInt(value):
-	val = toFloat(value)
+	val = None
 	if isNoneOrEmptry(value):
 		return None
 	try:
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 		try:
 			sysTime = int(time.time())
 			if __ser.inWaiting()>0:
-				gpsData.append(__ser.read(__ser.inWaiting()))
+				gpsData += __ser.read(__ser.inWaiting())
 			tmp = gpsData.split("\n", 1)
 			if len(tmp)>1:
 				line = tmp[0]
@@ -207,8 +207,8 @@ if __name__ == "__main__":
 					if GGA == None:
 						continue
 					RMC = line.split(',')
-					timeGGA = int(toFloat(GGA[1]))
-					timeRMC = int(toFloat(RMC[1]))
+					timeGGA = int(math.floor(toFloat(GGA[1])))
+					timeRMC = int(math.floor(toFloat(RMC[1])))
 					
 					if timeGGA != timeRMC:
 						writeErr("ERROR in data capture")
@@ -292,7 +292,7 @@ if __name__ == "__main__":
 			writeLog("KeyboardInterrupt: Saving GPS data...")
 			dumpGPS()
 			bRun = False
-		except:
-			writeErr(sys.exc_info()[0])
+#		except Exception,e:
+#			writeErr(e)
 		time.sleep(.2)
 	writeLog("Ended geoLapse...")
