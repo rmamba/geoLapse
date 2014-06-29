@@ -88,6 +88,7 @@ def writePID():
 		f.write(pid)
 
 def dumpGPS():
+	global GPS
 	with open(__dir+'/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
 		f.write(json.dumps(GPS))
 	GPS={}
@@ -159,6 +160,7 @@ if __name__ == "__main__":
 	if 'override' in __config:
 		__override = __config['override']
 	
+	global __dir
 	if __dir == None:
 		print "Missing target directory!"
 		sys.exit()
@@ -184,6 +186,8 @@ if __name__ == "__main__":
 	line = None
 	oldLine = None
 	gpsData = ''
+	global GPS
+	global sysTime
 	
 	while bRun:
 		try:
