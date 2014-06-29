@@ -280,8 +280,10 @@ if __name__ == "__main__":
 				if cntDown > 0:
 					cntDown = cntDown - 1
 					if (cntDown<10) and bDumpGPS:
+						GPIO.output(LED0, 0)
 						bDumpGPS = False
 						dumpGPS()
+						time.sleep(.5)
 				else:
 					dumpGPS()
 					subprocess.call('sudo shutdown -h now', shell=True)
@@ -292,7 +294,7 @@ if __name__ == "__main__":
 			writeLog("KeyboardInterrupt: Saving GPS data...")
 			dumpGPS()
 			bRun = False
-#		except Exception,e:
-#			writeErr(e)
+		except Exception,e:
+			writeErr(e)
 		time.sleep(.2)
 	writeLog("Ended geoLapse...")
