@@ -25,6 +25,8 @@ import RPi.GPIO as GPIO
 
 GPS = {}
 bRun = True
+sysTime = None
+__dir = None
 
 def writeLog(msg, isDate=True):
 	sys.stdout.write("%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
@@ -70,7 +72,7 @@ def toFloat(value):
 	return val
 
 def toInt(value):
-	val = None
+	val = toFloat(value)
 	if isNoneOrEmptry(value):
 		return None
 	try:
@@ -86,7 +88,7 @@ def writePID():
 		f.write(pid)
 
 def dumpGPS():
-	with open('/var/log/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
+	with open(__dir+'/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
 		f.write(json.dumps(GPS))
 	GPS={}
 
@@ -135,7 +137,6 @@ if __name__ == "__main__":
 	if 'device' in __config:
 		__device = __config['device']
 		
-	__dir = None
 	if 'dir' in __config:
 		__dir = __config['dir']
 	
@@ -180,18 +181,29 @@ if __name__ == "__main__":
 	cntDownReset = 35
 	cntDown = cntDownReset
 	bDumpGPS = True
+	line = None
+	oldLine = None
+	gpsData = None
 	
 	while bRun:
 		try:
 			sysTime = int(time.time())
-			if __ser.inWaiting()>40:
-				line = __ser.readline()
+			if __ser.inWaiting()>0:
+				gpsData.append(__ser.read())
+			tmp = gpsData.split("\n", 1)
+			line = tmp[0]
+			gpsData = tmp[1]
+			if line != None:
+				writeLog(line)
+#				line = __ser.readline()
 				if (__history != None):
 					__history.write(line)
 				if (line.startswith('$GPGGA')):
 					GGA = line.split(',')
 					if GGA[2]!='':
 						GPIO.output(LED1, 1)
+					oldLine = line
+					line = None
 					#isChanged = True
 				if (line.startswith('$GPRMC')):
 					if GGA == None:
@@ -202,6 +214,8 @@ if __name__ == "__main__":
 					
 					if timeGGA != timeRMC:
 						writeErr("ERROR in data capture")
+						writeErr(line)
+						writeErr(oldLine)
 					
 					knots = toFloat(RMC[7])
 					date = toInt(RMC[9])
