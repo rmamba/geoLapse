@@ -17,6 +17,7 @@ import json
 import subprocess
 import glob
 import signal
+import thread
 
 #RaspberryPi: susudo tdo apt-get install python-serial
 import serial
@@ -27,6 +28,7 @@ GPS = {}
 bRun = True
 sysTime = None
 __dir = None
+bPhoto = False
 
 def writeLog(msg, isDate=True):
 	sys.stdout.write("%s: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
@@ -93,15 +95,27 @@ def dumpGPS():
 		f.write(json.dumps(GPS))
 	GPS={}
 
+def takePhoto(cmd):
+	global bPhoto
+	GPIO.output(LED2, 1)
+	subprocess.call(cmd, shell=True)
+	GPIO.output(LED2, 0)
+	bPhoto = True
+
 def signal_term_handler(signal, frame):
 	writeLog('got SIGTERM')
 	dumpGPS()
 #	sys.exit(0)
-	bRun = False
+	bRun = True
 
 signal.signal(signal.SIGTERM, signal_term_handler)
 
 if __name__ == "__main__":
+	global GPS
+	global sysTime
+	global __dir
+	global bPhoto
+	
 	LED0 = 16
 	LED1 = 18
 	LED2 = 22
@@ -137,7 +151,8 @@ if __name__ == "__main__":
 	__device = '/dev/ttyUSB0'
 	if 'device' in __config:
 		__device = __config['device']
-		
+	
+	__dir = None
 	if 'dir' in __config:
 		__dir = __config['dir']
 	
@@ -160,7 +175,6 @@ if __name__ == "__main__":
 	if 'override' in __config:
 		__override = __config['override']
 	
-	global __dir
 	if __dir == None:
 		print "Missing target directory!"
 		sys.exit()
@@ -186,8 +200,9 @@ if __name__ == "__main__":
 	line = None
 	oldLine = None
 	gpsData = ''
-	global GPS
-	global sysTime
+	GPS = {}
+	sysTime=None
+	bPhoto = True
 	
 	while bRun:
 		try:
@@ -256,7 +271,7 @@ if __name__ == "__main__":
 					GPIO.output(LED1, 0)
 			line = None
 			if (sysTime % 5 == 0) and (GPIO.input(SW)==1):
-				GPIO.output(LED2, 1)
+				#GPIO.output(LED2, 1)
 				#check for size
 				s = os.statvfs(__dir)
 				free = (s.f_bavail * s.f_frsize) / 1048576.0
@@ -269,10 +284,12 @@ if __name__ == "__main__":
 				fileName = "photo-%s.jpg" % sysTime
 				cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
 				#print cmd
-				if (not os.path.isfile(__dir + '/' + fileName)) or (__override == True):
+				if ((not os.path.isfile(__dir + '/' + fileName)) or (not os.path.isfile(__dir + '/' + fileName + '~')) or (__override == True)) and (bPhoto):
 					#print cmd
-					subprocess.call(cmd, shell=True)
-				GPIO.output(LED2, 0)
+					#subprocess.call(cmd, shell=True)
+					bPhoto = False
+					thread.start_new_thread(takePhoto, (cmd, ))
+				#GPIO.output(LED2, 0)
 			if (sysTime % 3600 == 0) and (GPS !=None):
 				dumpGPS()
 			blink = blink + 1
@@ -301,4 +318,7 @@ if __name__ == "__main__":
 		except Exception,e:
 			writeErr(e)
 		time.sleep(.2)
+	GPIO.output(LED0, 0)
+	GPIO.output(LED1, 0)
+	GPIO.output(LED2, 0)
 	writeLog("Ended geoLapse...")

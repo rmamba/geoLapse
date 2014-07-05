@@ -17,7 +17,7 @@ EXEPATH=/home/pi/GIT/geoLapse
 PIDFILE=/var/run/geoLapse.pid
 
 do_start () {
- python $EXEPATH/$PROGRAM $EXEPATH/geoLapse.config > /var/log/geoLapse.log 2>&1 &
+ python $EXEPATH/$PROGRAM $EXEPATH/geoLapse.config >> /var/log/geoLapse.log 2>>/var/log/geoLapse-error.log &
  echo $! > $PIDFILE
 }
 
