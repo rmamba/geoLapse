@@ -102,6 +102,27 @@ def takePhoto(cmd):
 	GPIO.output(LED4, 0)
 	bPhoto = True
 
+def removePhotos(Dir, freeSpace):
+	GPIO.output(LED2, 1)
+	s = os.statvfs(Dir)
+	free = (s.f_bavail * s.f_frsize) / 1048576.0
+	#delete oldest image
+	photos = glob.glob(Dir + '/*.jpg')
+	oldJPEGs = sorted(photos)
+	cntJPG = 0
+	while free < (freeSpace):
+		fileMask = oldJPEGs[0][:-8] + '*.jpg'
+		writeLog("Deleting %s" % fileMask)
+		GPIO.output(LED2, cntJPG % 2)
+		cntJPG = cntJPG + 1
+		subprocess.call('rm ' + fileMask, shell=True)
+		s = os.statvfs(__dir)
+		free = (s.f_bavail * s.f_frsize) / 1048576.0
+		photos = glob.glob(Dir + '/*.jpg')
+		oldJPEGs = sorted(photos)
+	GPIO.output(LED3, 0)
+	GPIO.output(LED2, 0)
+
 def signal_term_handler(signal, frame):
 	writeLog('got SIGTERM')
 	dumpGPS()
@@ -282,30 +303,15 @@ if __name__ == "__main__":
 					GGA = None
 					GPIO.output(LED1, 0)
 			line = None
-			if (sysTime % 600 == 0):
+			if (sysTime % 60 == 0):
 				#check for size every 5min
-				GPIO.output(LED2, 1)
 				s = os.statvfs(__dir)
 				free = (s.f_bavail * s.f_frsize) / 1048576.0
 				if free < (__minSpace*2):
 					GPIO.output(LED3, 1)
 				if free < __minSpace:
-					#delete oldest image
-					photos = glob.glob(__dir + '/*.jpg')
-					oldJPEGs = sorted(photos)
-					cntJPG = 0
-					while free < (__cleanSpace):
-						if os.path.isfile(oldJPEGs[cntJPG]):
-							writeLog("Deleting %s" % oldJPEGs[cntJPG])
-							os.remove(oldJPEGs[cntJPG])
-						GPIO.output(LED2, cntJPG % 2)
-						cntJPG = cntJPG + 1
-						s = os.statvfs(__dir)
-						free = (s.f_bavail * s.f_frsize) / 1048576.0
-					GPIO.output(LED3, 0)
-				GPIO.output(LED2, 0)
+					thread.start_new_thread(removePhotos, (__dir, __cleanSpace, ))
 			if (sysTime % 2 == 0) and (GPIO.input(SW)==1):
-				
 				fileName = "photo-%s.jpg" % sysTime
 				cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
 				#print cmd
