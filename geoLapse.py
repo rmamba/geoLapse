@@ -97,9 +97,9 @@ def dumpGPS():
 
 def takePhoto(cmd):
 	global bPhoto
-	GPIO.output(LED2, 1)
+	GPIO.output(LED4, 1)
 	subprocess.call(cmd, shell=True)
-	GPIO.output(LED2, 0)
+	GPIO.output(LED4, 0)
 	bPhoto = True
 
 def signal_term_handler(signal, frame):
@@ -291,10 +291,15 @@ if __name__ == "__main__":
 					#delete oldest image
 					photos = glob.glob(__dir + '/*.jpg')
 					oldJPEGs = sorted(photos)
-#					if os.path.isfile(oldJPEG):
-#						writeLog("Deleting %s" % oldJPEG)
-#						os.remove(oldJPEG)
-					os.remove(oldJPEGs[0][:-8] + '*.jpg');
+					cntJPG = 0
+					while free < (__minSpace*10):
+						if os.path.isfile(oldJPEGs[cntJPG]):
+							writeLog("Deleting %s" % oldJPEGs[cntJPG])
+							os.remove(oldJPEGs[cntJPG])
+						GPIO.output(LED2, cntJPG % 2)
+						cntJPG = cntJPG + 1
+						s = os.statvfs(__dir)
+						free = (s.f_bavail * s.f_frsize) / 1048576.0
 					GPIO.output(LED3, 0)
 				GPIO.output(LED2, 0)
 			if (sysTime % 2 == 0) and (GPIO.input(SW)==1):
