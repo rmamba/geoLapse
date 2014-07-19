@@ -153,8 +153,8 @@ if __name__ == "__main__":
 		s = f.read()
 		__config = json.loads(s)
 	
-	#Leave at least 100Mb free
-	__minSpace = 100.0
+	#Leave at least 500Mb free
+	__minSpace = 500.0
 	#Remove 32Gb of pictures
 	__cleanSpace = 32000.0
 	if 'minSpace' in __config:
