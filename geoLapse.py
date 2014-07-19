@@ -116,14 +116,14 @@ if __name__ == "__main__":
 	global __dir
 	global bPhoto
 	
-	LED0 = 16
-	LED1 = 16
+	LED0 = 13
+	LED1 = 15
 	LED2 = 16
 	LED3 = 18
 	LED4 = 22
 
 	KEY0 = 11
-	KEY1 = 11
+	KEY1 = 12
 	SW = 7
 
 	GPIO.setmode(GPIO.BOARD)
