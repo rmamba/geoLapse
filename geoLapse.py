@@ -117,22 +117,32 @@ if __name__ == "__main__":
 	global bPhoto
 	
 	LED0 = 16
-	LED1 = 18
-	LED2 = 22
-	KEY = 11
+	LED1 = 16
+	LED2 = 16
+	LED3 = 18
+	LED4 = 22
+
+	KEY0 = 11
+	KEY1 = 11
 	SW = 7
+
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
 	
 	GPIO.setup(LED0, GPIO.OUT)
 	GPIO.setup(LED1, GPIO.OUT)
 	GPIO.setup(LED2, GPIO.OUT)
-	GPIO.setup(KEY, GPIO.IN)
+	GPIO.setup(LED3, GPIO.OUT)
+	GPIO.setup(LED4, GPIO.OUT)
+	GPIO.setup(KEY0, GPIO.IN)
+	GPIO.setup(KEY1, GPIO.IN)
 	GPIO.setup(SW, GPIO.IN)
 	
 	GPIO.output(LED0, 1)
 	GPIO.output(LED1, 0)
 	GPIO.output(LED2, 0)
+	GPIO.output(LED3, 0)
+	GPIO.output(LED4, 0)
 	
 	#writePID()
 	configFile = 'geoLapse.config'
@@ -270,17 +280,25 @@ if __name__ == "__main__":
 					GGA = None
 					GPIO.output(LED1, 0)
 			line = None
-			if (sysTime % 5 == 0) and (GPIO.input(SW)==1):
-				#GPIO.output(LED2, 1)
-				#check for size
+			if (sysTime % 600 == 0):
+				#check for size every 5min
+				GPIO.output(LED2, 1)
 				s = os.statvfs(__dir)
 				free = (s.f_bavail * s.f_frsize) / 1048576.0
+				if free < (__minSpace*2):
+					GPIO.output(LED3, 1)
 				if free < __minSpace:
 					#delete oldest image
-					oldJPEG = sorted(glob.glob(__dir + '/*.jpg'))[0]
-					if os.path.isfile(oldJPEG):
-						writeLog("Deleting %s" % oldJPEG)
-						os.remove(oldJPEG)
+					photos = glob.glob(__dir + '/*.jpg')
+					oldJPEGs = sorted(photos)
+#					if os.path.isfile(oldJPEG):
+#						writeLog("Deleting %s" % oldJPEG)
+#						os.remove(oldJPEG)
+					os.remove(oldJPEGs[0][:-8] + '*.jpg');
+					GPIO.output(LED3, 0)
+				GPIO.output(LED2, 0)
+			if (sysTime % 2 == 0) and (GPIO.input(SW)==1):
+				
 				fileName = "photo-%s.jpg" % sysTime
 				cmd = ("raspistill -n -t 100 -w %s -h %s -o %s/%s" % (__width, __height, __dir, fileName) )
 				#print cmd
@@ -296,7 +314,7 @@ if __name__ == "__main__":
 			if blink > 15:
 				blink = 0
 			GPIO.output(LED0, blink % 2)
-			if GPIO.input(KEY) == 1:
+			if GPIO.input(KEY0) == 1:
 				GPIO.output(LED0, 1)
 				if cntDown > 0:
 					cntDown = cntDown - 1
@@ -321,4 +339,6 @@ if __name__ == "__main__":
 	GPIO.output(LED0, 0)
 	GPIO.output(LED1, 0)
 	GPIO.output(LED2, 0)
+	GPIO.output(LED3, 0)
+	GPIO.output(LED4, 0)
 	writeLog("Ended geoLapse...")
