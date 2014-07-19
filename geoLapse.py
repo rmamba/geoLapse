@@ -155,6 +155,8 @@ if __name__ == "__main__":
 	
 	#Leave at least 100Mb free
 	__minSpace = 100.0
+	#Remove 32Gb of pictures
+	__cleanSpace = 32000.0
 	if 'minSpace' in __config:
 		__minSpace = __config['minSpace']
 	
@@ -292,7 +294,7 @@ if __name__ == "__main__":
 					photos = glob.glob(__dir + '/*.jpg')
 					oldJPEGs = sorted(photos)
 					cntJPG = 0
-					while free < (__minSpace*10):
+					while free < (__cleanSpace):
 						if os.path.isfile(oldJPEGs[cntJPG]):
 							writeLog("Deleting %s" % oldJPEGs[cntJPG])
 							os.remove(oldJPEGs[cntJPG])
