@@ -25,6 +25,7 @@ import serial
 import RPi.GPIO as GPIO
 
 GPS = {}
+NMEA = []
 bRun = True
 sysTime = None
 __dir = None
@@ -91,9 +92,20 @@ def writePID():
 
 def dumpGPS():
 	global GPS
+	if len(GPS) == 0:
+		return
 	with open(__dir+'/geoLapse-'+str(sysTime)+'.gps', 'w') as f:
 		f.write(json.dumps(GPS))
 	GPS={}
+
+def dumpNMEA():
+	global NMEA
+	if len(NMEA) == 0:
+		return
+	with open(__dir+'/geoLapse-'+str(sysTime)+'.nmea', 'w') as f:
+		for ln in NMEA:
+			f.write(ln + "\r\n")
+	NMEA={}
 
 def takePhoto(cmd):
 	global bPhoto
@@ -133,6 +145,7 @@ signal.signal(signal.SIGTERM, signal_term_handler)
 
 if __name__ == "__main__":
 	global GPS
+	global NMEA
 	global sysTime
 	global __dir
 	global bPhoto
@@ -200,9 +213,9 @@ if __name__ == "__main__":
 	if 'height' in __config:
 		__height = __config['height']
 	
-	__history = None
-	if 'history' in __config:
-		__history = __config['history']
+	__logNMEA = None
+	if 'logNMEA' in __config:
+		__logNMEA = __config['logNMEA']
 	
 	__override = False
 	if 'override' in __config:
@@ -234,6 +247,7 @@ if __name__ == "__main__":
 	oldLine = None
 	gpsData = ''
 	GPS = {}
+	NMEA = []
 	sysTime=None
 	bPhoto = True
 	
@@ -247,8 +261,8 @@ if __name__ == "__main__":
 				line = tmp[0]
 				gpsData = tmp[1]
 			if line != None:
-				if (__history != None):
-					__history.write(line)
+				if (__logNMEA == True):
+					NMEA.append(line)
 				if (line.startswith('$GPGGA')):
 					GGA = line.split(',')
 					if GGA[2]!='':
@@ -323,6 +337,7 @@ if __name__ == "__main__":
 				#GPIO.output(LED2, 0)
 			if (sysTime % 3600 == 0) and (GPS !=None):
 				dumpGPS()
+				dumpNMEA()
 			blink = blink + 1
 			if blink > 15:
 				blink = 0
