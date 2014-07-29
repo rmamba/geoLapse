@@ -105,7 +105,7 @@ def dumpNMEA():
 	with open(__dir+'/geoLapse-'+str(sysTime)+'.nmea', 'w') as f:
 		for ln in NMEA:
 			f.write(ln + "\r\n")
-	NMEA={}
+	NMEA=[]
 
 def takePhoto(cmd):
 	global bPhoto
