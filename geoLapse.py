@@ -104,7 +104,7 @@ def dumpNMEA():
 		return
 	with open(__dir+'/geoLapse-'+str(sysTime)+'.nmea', 'w') as f:
 		for ln in NMEA:
-			f.write(ln + "\r\n")
+			f.write(ln)
 	NMEA=[]
 
 def takePhoto(cmd):
@@ -138,6 +138,7 @@ def removePhotos(Dir, freeSpace):
 def signal_term_handler(signal, frame):
 	writeLog('got SIGTERM')
 	dumpGPS()
+	dumpNMEA()
 #	sys.exit(0)
 	bRun = True
 
@@ -342,6 +343,9 @@ if __name__ == "__main__":
 			if blink > 15:
 				blink = 0
 			GPIO.output(LED0, blink % 2)
+			if GPIO.input(KEY1) == 1:
+				dumpGPS()
+				dumpNMEA()
 			if GPIO.input(KEY0) == 1:
 				GPIO.output(LED0, 1)
 				if cntDown > 0:
@@ -350,9 +354,11 @@ if __name__ == "__main__":
 						GPIO.output(LED0, 0)
 						bDumpGPS = False
 						dumpGPS()
+						dumpNMEA()
 						time.sleep(.5)
 				else:
 					dumpGPS()
+					dumpNMEA()
 					subprocess.call('sudo shutdown -h now', shell=True)
 			else:
 				cntDown = cntDownReset
