@@ -102,7 +102,8 @@ def dumpNMEA():
 	global NMEA
 	if len(NMEA) == 0:
 		return
-	with open(__dir+'/geoLapse-'+str(sysTime)+'.nmea', 'w') as f:
+	tmp = sysTime % 3600
+	with open(__dir+'/geoLapse-'+str(sysTime - tmp)+'.nmea', 'a+') as f:
 		for ln in NMEA:
 			f.write(ln)
 	NMEA=[]
@@ -336,7 +337,7 @@ if __name__ == "__main__":
 					bPhoto = False
 					thread.start_new_thread(takePhoto, (cmd, ))
 				#GPIO.output(LED2, 0)
-			if (sysTime % 3600 == 0) and (GPS !=None):
+			if (sysTime % 300 == 0) and (GPS !=None):
 				dumpGPS()
 				dumpNMEA()
 			blink = blink + 1
@@ -346,6 +347,8 @@ if __name__ == "__main__":
 			if GPIO.input(KEY1) == 1:
 				dumpGPS()
 				dumpNMEA()
+				while GPIO.input(KEY1) == 1:
+					time.sleep(.1)
 			if GPIO.input(KEY0) == 1:
 				GPIO.output(LED0, 1)
 				if cntDown > 0:
@@ -366,8 +369,11 @@ if __name__ == "__main__":
 		except KeyboardInterrupt:
 			writeLog("KeyboardInterrupt: Saving GPS data...")
 			dumpGPS()
+			dumpNMEA()
 			bRun = False
 		except Exception,e:
+			dumpGPS()
+			dumpNMEA()
 			writeErr(e)
 		time.sleep(.2)
 	GPIO.output(LED0, 0)
